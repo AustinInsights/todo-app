@@ -1,7 +1,9 @@
 'use client'
+
+import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
-export default function RegisterSuccessPage() {
+function SuccessContent() {
   const params = useSearchParams()
   const email = params.get('email') || 'user'
   const router = useRouter()
@@ -22,5 +24,13 @@ export default function RegisterSuccessPage() {
         Go to Login
       </button>
     </div>
+  )
+}
+
+export default function RegisterSuccessPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SuccessContent />
+    </Suspense>
   )
 }
