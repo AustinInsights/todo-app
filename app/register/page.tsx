@@ -18,9 +18,9 @@ export default function RegisterPage() {
     })
     const data = await res.json()
     if (!res.ok) {
-      setError(data.error)
+        setError(data.error)
     } else {
-      router.push('/login')
+        router.push(`/register/success?email=${encodeURIComponent(email)}`)
     }
   }
 
