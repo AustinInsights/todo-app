@@ -35,6 +35,10 @@ export default function LoginPage() {
         {error && <p className="text-red-500">{error}</p>}
       </form>
       <p className="mt-4 text-sm">
+        <a href="/register" className="text-blue-600 underline">Register</a> |{' '}
+        <a href="/forgot-password" className="text-blue-600 underline">Forgot Password?</a>
+      </p>
+      <p className="mt-4 text-sm">
         Don&apos;t have an account?{' '}
         <a href="/register" className="text-blue-600 underline">Register</a>
       </p>
