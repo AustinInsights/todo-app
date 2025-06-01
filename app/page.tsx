@@ -9,11 +9,11 @@ export default function Home() {
     // Check URL for verification params (hash or query string)
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.hash.slice(1) || window.location.search)
-      if (
-        (params.get('access_token') && params.get('type') === 'signup') ||
-        (params.get('access_token') && params.get('type') === 'recovery')
-      ) {
+      const type = params.get('type')
+      if (params.get('access_token') && type === 'signup') {
         router.replace('/verified')
+      } else if (params.get('access_token') && type === 'recovery') {
+        router.replace('/reset-password' + window.location.hash)
       }
     }
   }, [router])
