@@ -4,10 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
@@ -19,7 +17,6 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Get access_token from URL hash
       const params = new URLSearchParams(window.location.hash.slice(1))
       const access_token = params.get('access_token')
       setToken(access_token)
@@ -43,10 +40,13 @@ export default function ResetPasswordPage() {
       return
     }
 
-    const { error } = await supabase.auth.updateUser(
-      { password },
-      { accessToken: token }
-    )
+    // Step 1: Create a client with the reset token as the current session
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
+
+    // Step 2: Now call updateUser
+    const { error } = await supabase.auth.updateUser({ password })
 
     if (error) {
       setError(error.message)
