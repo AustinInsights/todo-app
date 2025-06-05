@@ -1,9 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
-import supabase from '@/lib/supabase'
-import { Todo } from '@/types/todo'
+import { Todo, TodoStatus } from '@/types/todo'
 
-const PAGE_SIZE = 10 
+const PAGE_SIZE = 10
 
 export default function TodoList({ token }: { token: string }) {
   const [todos, setTodos] = useState<Todo[]>([])
@@ -11,86 +10,47 @@ export default function TodoList({ token }: { token: string }) {
   const [error, setError] = useState('')
   const [status, setStatus] = useState<string>('all')
   const [page, setPage] = useState(0)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [refreshFlag, setRefreshFlag] = useState(false)
 
-  // Fetch user id from the token
-  useEffect(() => {
-    async function getUserId() {
-      if (!token) return
-      const { data, error } = await supabase.auth.getUser(token)
-      if (error || !data.user) {
-        setError('Session expired or invalid.')
-      } else {
-        setUserId(data.user.id)
-      }
-    }
-    getUserId()
-  }, [token])
-
-  // Fetch todos for the user
-  async function fetchTodos(currentUserId: string) {
+  function fetchTodos() {
     setLoading(true)
     setError('')
-    let query = supabase
-      .from('todos')
-      .select('*')
-      .eq('user_id', currentUserId)
-      .order('created_at', { ascending: false })
-      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
-    if (status !== 'all') {
-      query = query.eq('status', status)
-    }
-    const { data, error } = await query
-    if (error) {
-      setError('Failed to load')
-      setLoading(false)
-      return
-    }
-    setTodos(data || [])
-    setLoading(false)
+    fetch(
+      `/api/todos?status=${status === 'all' ? '' : status}&limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+      .then(res => res.json())
+      .then(data => {
+        setTodos(data.todos || [])
+        setLoading(false)
+      })
+      .catch(() => {
+        setError('Failed to load')
+        setLoading(false)
+      })
   }
 
-  // On mount and on changes, fetch todos
   useEffect(() => {
-    if (!userId) return
-    fetchTodos(userId)
+    fetchTodos()
+    // Listen for custom event to refresh
+    const listener = () => setRefreshFlag(v => !v)
+    window.addEventListener('refresh-todos', listener)
+    return () => window.removeEventListener('refresh-todos', listener)
     // eslint-disable-next-line
-  }, [userId, status, page])
+  }, [])
 
-  // Set up realtime subscription for the user's todos
   useEffect(() => {
-    if (!userId) return
-
-    const channel = supabase
-      .channel('realtime-todos')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'todos',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          // Any change (INSERT, UPDATE, DELETE): re-fetch current todos
-          fetchTodos(userId)
-        }
-      )
-      .subscribe()
-
-    // Cleanup subscription on unmount
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    fetchTodos()
     // eslint-disable-next-line
-  }, [userId, status, page])
+  }, [status, page, refreshFlag])
 
   async function handleDelete(id: string) {
+    if (!confirm('Delete this to-do?')) return
     await fetch(`/api/todos/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     })
-    // No need to manually refresh; real-time will handle it!
+    window.dispatchEvent(new Event('refresh-todos'))
   }
 
   async function handleToggleStatus(todo: Todo) {
@@ -99,7 +59,7 @@ export default function TodoList({ token }: { token: string }) {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ status: todo.status === 'pending' ? 'completed' : 'pending' })
     })
-    // No need to manually refresh; real-time will handle it!
+    window.dispatchEvent(new Event('refresh-todos'))
   }
 
   async function handleEditTitle(todo: Todo) {
@@ -110,7 +70,7 @@ export default function TodoList({ token }: { token: string }) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ title: newTitle })
       })
-      // No need to manually refresh; real-time will handle it!
+      window.dispatchEvent(new Event('refresh-todos'))
     }
   }
 
